@@ -125,7 +125,7 @@ class Trader:
 
         # Orders to be placed on exchange matching engine
         result = {}
-        POSITION_LIMIT = 60
+        POSITION_LIMIT = 25
 
         for product in state.order_depths:
 
@@ -153,10 +153,14 @@ class Trader:
 
                         # Ask dropped significantly — cheap supply appeared, buy it then dime 2nd best bid
                         if last_ask - best_ask > 3:
-                            qty = min(5, POSITION_LIMIT - position)
+                            qty = min(5, POSITION_LIMIT - position, -best_ask_amount)
                             if qty > 0 and trend is not None and trend > 0.02 and state.timestamp > 5_000:
-                                orders.append(Order(product, best_ask, qty))
-                                print(f"[TOMATOES] Ask dropped {last_ask} -> {best_ask}, hitting ask for {qty}")
+                                if position < -20:
+                                    orders.append(Order(product, best_ask, -best_ask_amount))
+                                    print(f"[TOMATOES] Ask dropped {last_ask} -> {best_ask}, hitting ask for limit {-best_ask_amount}")
+                                else:
+                                    orders.append(Order(product, best_ask, qty))
+                                    print(f"[TOMATOES] Ask dropped {last_ask} -> {best_ask}, hitting ask for {qty}")
                             if second_best_bid is not None and position + qty < POSITION_LIMIT:
                                 orders.append(Order(product, second_best_bid + 1, min(5, POSITION_LIMIT - position - qty)))
                                 print(f"[TOMATOES] Diming 2nd best bid at {second_best_bid + 1}")
@@ -167,10 +171,14 @@ class Trader:
 
                         # Bid jumped significantly — expensive buyer appeared, sell to them then dime 2nd best ask
                         if best_bid - last_bid > 3:
-                            qty = min(5, position + POSITION_LIMIT)
+                            qty = min(5, position + POSITION_LIMIT, best_bid_amount)
                             if qty > 0 and trend is not None and trend < -0.02 and state.timestamp > 5_000:
-                                orders.append(Order(product, best_bid, -qty))
-                                print(f"[TOMATOES] Bid jumped {last_bid} -> {best_bid}, hitting bid for {qty}")
+                                if position > 20:
+                                    orders.append(Order(product, best_bid, -best_bid_amount))
+                                    print(f"[TOMATOES] Bid jumped {last_bid} -> {best_bid}, hitting bid for limit {-best_bid_amount}")
+                                else:
+                                    orders.append(Order(product, best_bid, -qty))
+                                    print(f"[TOMATOES] Bid jumped {last_bid} -> {best_bid}, hitting bid for {qty}")
                             if second_best_ask is not None and position - qty > -POSITION_LIMIT:
                                 orders.append(Order(product, second_best_ask - 1, -min(5, position + POSITION_LIMIT - qty)))
                                 print(f"[TOMATOES] Diming 2nd best ask at {second_best_ask - 1}")
