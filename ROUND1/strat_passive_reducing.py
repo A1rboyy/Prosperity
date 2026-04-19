@@ -107,22 +107,31 @@ class Trader:
                     print(f"Processing {product} with passive strategy. Placing SELL order at {best_ask - 1}")
 
 
-                ## Taking Big Candles that jump over the Mid Price by 10 or more aggressively.
-                if best_bid is not None and last_bid_osmium is not None and best_bid - last_bid_osmium > 10:
+                ## Taking Big Candles that jump over the Mid Price by 7 or more aggressively.
+                if best_bid is not None and last_bid_osmium is not None and best_bid - last_bid_osmium > 7:
                     orders.append(Order(product, best_bid, -best_bid_amount))
                     print(f"SELL aggresive {max(-best_bid_amount, -position)} at {best_bid}")
 
-                if best_ask is not None and last_ask_osmium is not None and last_ask_osmium - best_ask > 10:
+                if best_ask is not None and last_ask_osmium is not None and last_ask_osmium - best_ask > 7:
                     print(f"last_ask: {last_ask_osmium}, best_ask: {best_ask}")
                     print(f"Spread: {last_ask_osmium - best_ask}")
                     orders.append(Order(product, best_ask, -best_ask_amount))
                     print(f"BUY aggresive {-best_ask_amount} at {best_ask}")
 
+
+                ## Reduce Position of Over 15 to reduce exposure.
+                if position > 15 and best_bid is not None and last_bid_osmium is not None and best_bid - last_bid_osmium > 5:
+                    orders.append(Order(product, best_bid, -min(position, best_bid_amount)))
+                    print(f"Reducing position by selling {min(position, best_bid_amount)} at {best_bid}")
+                if position < -15 and best_ask is not None and last_ask_osmium is not None and last_ask_osmium - best_ask > 7:
+                    orders.append(Order(product, best_ask, min(-position, best_ask_amount)))
+                    print(f"Reducing position by buying {min(-position, best_ask_amount)} at {best_ask}")
+
                     
                 ## Big Offset for Large Order that break all normal Order Book Levels
                 print(f"Processing {product} with big offset.")
-                orders.append(Order(product, 9950, 10))
-                orders.append(Order(product, 10050, -10))
+                orders.append(Order(product, 9920, 15))
+                orders.append(Order(product, 10100, -15))
 
             
 
@@ -131,11 +140,18 @@ class Trader:
                 print(f"Processing {product} with passive strategy.")
                 order_depth: OrderDepth = state.order_depths[product]
                 orders: List[Order] = []
+                position = state.position.get(product, 0)
 
                 best_bid, best_bid_amount = list(order_depth.buy_orders.items())[0]
                 best_ask, best_ask_amount = list(order_depth.sell_orders.items())[0]
 
+                orders.append(Order(product, best_ask, -min(best_ask_amount, position - 70 )))
+                print(f"BUY position aggressive at ASK {min(best_ask_amount, position - 70)} at {best_ask}")
+
                 orders.append(Order(product, best_bid + 1, 10))
+                orders.append(Order(product, best_ask - 1, -10))
+
+
             
             result[product] = orders
     
